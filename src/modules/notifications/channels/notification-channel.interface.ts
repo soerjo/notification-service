@@ -9,6 +9,8 @@ export interface ChannelMessage {
   content: string;
   payload: Record<string, unknown>;
   templateCode: string | null;
+  domainId?: string | null;
+  domain_id?: string | null;
 }
 
 export interface ChannelSendResult {

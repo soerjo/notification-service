@@ -63,6 +63,7 @@ export class NotificationsDispatcher {
       content: notification.content,
       payload: toRecord(notification.payload),
       templateCode: notification.templateCode,
+      domainId: notification.domainId,
     };
 
     const start = performance.now();
