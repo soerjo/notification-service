@@ -18,6 +18,7 @@ export class EmailChannel implements NotificationChannel {
   private readonly logger = new Logger(EmailChannel.name);
   private readonly defaultTransporter: Transporter | null;
   private readonly defaultFrom: string;
+  private readonly transporterPool = new Map<string, Transporter>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -42,14 +43,18 @@ export class EmailChannel implements NotificationChannel {
   }
 
   async send(message: ChannelMessage): Promise<ChannelSendResult> {
-    const { transporter, from } = await this.resolveTransporter();
+    const payloadObj = message.payload as Record<string, unknown> | undefined;
+    const domainId =
+      typeof payloadObj?.domain_id === 'string'
+        ? payloadObj.domain_id
+        : undefined;
+
+    const { transporter, from } = await this.resolveTransporter(domainId);
     if (!transporter) {
       throw new Error(
         'Email channel is not configured. Provide SMTP env vars or configure notification_platforms in DB.',
       );
     }
-
-    const payloadObj = message.payload as Record<string, unknown> | undefined;
     const metadataObj = payloadObj?.metadata as
       Record<string, unknown> | undefined;
     const contentObj = payloadObj?.content as
@@ -118,23 +123,33 @@ export class EmailChannel implements NotificationChannel {
     };
   }
 
-  private async resolveTransporter(): Promise<{
+  private async resolveTransporter(domainId?: string): Promise<{
     transporter: Transporter | null;
     from: string;
   }> {
-    const platform = await this.platformConfig.getActivePlatform(this.channel);
+    const platform = await this.platformConfig.getActivePlatform(
+      this.channel,
+      domainId,
+    );
     const cfg = platform?.config;
 
     if (cfg?.host) {
-      const port = Number(cfg.port ?? 587);
-      const transporter = nodemailer.createTransport({
-        host: cfg.host as string,
-        port,
-        secure: port === 465,
-        auth: cfg.user
-          ? { user: cfg.user as string, pass: (cfg.pass as string) ?? '' }
-          : undefined,
-      });
+      const poolKey = `${cfg.host}:${cfg.port ?? 587}:${cfg.user ?? ''}`;
+      let transporter = this.transporterPool.get(poolKey);
+
+      if (!transporter) {
+        const port = Number(cfg.port ?? 587);
+        transporter = nodemailer.createTransport({
+          host: cfg.host as string,
+          port,
+          secure: port === 465 || cfg.secure === true,
+          auth: cfg.user
+            ? { user: cfg.user as string, pass: (cfg.pass as string) ?? '' }
+            : undefined,
+        });
+        this.transporterPool.set(poolKey, transporter);
+      }
+
       return {
         transporter,
         from: (cfg.from as string) ?? this.defaultFrom,
