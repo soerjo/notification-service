@@ -37,9 +37,6 @@ class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
-  INTERNAL_API_TOKEN?: string;
-  @IsString()
-  @IsOptional()
   TELEGRAM_BOT_TOKEN?: string;
 
   @IsString()
