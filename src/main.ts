@@ -52,7 +52,7 @@ async function bootstrap() {
       'Multi-Channel Notification Dispatch Service API documentation',
     )
     .setVersion('1.0')
-    .addApiKey({ type: 'apiKey', name: 'X-Api-Key', in: 'header' }, 'api-key')
+    .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'api-key')
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document);

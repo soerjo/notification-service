@@ -8,7 +8,6 @@ import { HealthModule } from './modules/health/health.module.js';
 import { MetricsModule } from './modules/metrics/metrics.module.js';
 import { RedisModule } from './modules/redis/redis.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
-import { SignaturesModule } from './modules/signatures/signatures.module.js';
 import { ApiKeyGuard } from './common/guards/api-key.guard.js';
 import { loggerConfig } from './config/logger.config.js';
 import { validate } from './config/env.validation.js';
@@ -23,7 +22,6 @@ import { validate } from './config/env.validation.js';
     HealthModule,
     MetricsModule,
     NotificationsModule,
-    SignaturesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
