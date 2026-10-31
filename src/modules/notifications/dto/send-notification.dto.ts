@@ -29,11 +29,6 @@ export class NotificationDestinationDto {
   @IsOptional()
   email?: string;
 
-  @ApiPropertyOptional({ example: 'fcm-device-token' })
-  @IsString()
-  @IsOptional()
-  fcm_token?: string;
-
   @ApiPropertyOptional({ example: '+628123456789' })
   @IsString()
   @IsOptional()
@@ -82,6 +77,11 @@ export class SendNotificationDto {
   @IsString()
   @IsOptional()
   trace_id?: string;
+
+  @ApiPropertyOptional({ example: 'cms.soerjo.id' })
+  @IsString()
+  @IsOptional()
+  domain_id?: string;
 
   @ApiPropertyOptional({ example: 'usr_9981' })
   @IsString()

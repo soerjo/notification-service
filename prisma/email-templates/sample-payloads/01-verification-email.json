@@ -1,0 +1,14 @@
+{
+  "company_name": "Nexus Platform",
+  "user_name": "Alex Morgan",
+  "preheader_text": "Confirm your email address to activate your account.",
+  "badge_label": "ACCOUNT SECURITY",
+  "headline": "Please verify your email address",
+  "message_body": "Thank you for registering with {{company_name}}. To ensure your account security and gain full access to your workspace, please verify your email by clicking the button below.",
+  "cta_label": "Verify Email Address",
+  "verification_url": "https://nexus.example.com/auth/verify?token=v_9823kjsd98234",
+  "expires_in": "24 hours",
+  "support_email": "support@nexus.example.com",
+  "company_address": "742 Evergreen Terrace, San Francisco, CA 94107",
+  "unsubscribe_url": "https://nexus.example.com/preferences"
+}

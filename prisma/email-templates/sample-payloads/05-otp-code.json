@@ -1,0 +1,12 @@
+{
+  "company_name": "Apex Pay",
+  "user_name": "David Kim",
+  "preheader_text": "Use {{otp_code}} to authenticate your transaction or sign-in.",
+  "badge_label": "ONE-TIME PASSCODE",
+  "headline": "Your Two-Factor Code",
+  "otp_code": "582 914",
+  "expires_minutes": "10",
+  "device_info": "Safari on iOS 19 (Jakarta, ID)",
+  "company_address": "Grand Indonesia Menara BCA, Jakarta",
+  "unsubscribe_url": "https://apexpay.example.com/unsub"
+}

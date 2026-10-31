@@ -4,23 +4,26 @@ import {
   Get,
   HttpCode,
   Param,
-  ParseUUIDPipe,
   Post,
+  Query,
   Res,
-  UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { NotificationChannel } from '@prisma/client';
 import type { Response } from 'express';
-import { Public } from '../../common/decorators/public.decorator.js';
-import { InternalAuthGuard } from '../../common/guards/internal-auth.guard.js';
-import { SendNotificationDto } from './dto/send-notification.dto.js';
+import {
+  SendNotificationDto,
+  SendEmailDto,
+  SendTelegramDto,
+  SendWhatsappDto,
+  SendSocketDto,
+  GetNotificationLogsDto,
+} from './dto/index.js';
 import { NotificationsService } from './notifications.service.js';
 
 @ApiTags('Notifications')
-@ApiBearerAuth()
+@ApiSecurity('api-key')
 @Controller('v1/notifications')
-@Public()
-@UseGuards(InternalAuthGuard)
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
@@ -38,8 +41,107 @@ export class NotificationsController {
     };
   }
 
-  @Get(':id/logs')
-  async logs(@Param('id', ParseUUIDPipe) id: string) {
-    return this.notificationsService.getLogs(id);
+  @Post('email')
+  @HttpCode(202)
+  @ApiOperation({ summary: 'Send an email notification' })
+  async sendEmail(
+    @Body() dto: SendEmailDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.notificationsService.sendEmail(dto);
+    response.status(result.idempotent ? 200 : 202);
+    return {
+      notification_id: result.notificationIds[0],
+      notification_ids: result.notificationIds,
+      trace_id: result.traceId,
+    };
+  }
+
+  @Post('telegram')
+  @HttpCode(202)
+  @ApiOperation({ summary: 'Send a Telegram notification' })
+  async sendTelegram(
+    @Body() dto: SendTelegramDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.notificationsService.sendTelegram(dto);
+    response.status(result.idempotent ? 200 : 202);
+    return {
+      notification_id: result.notificationIds[0],
+      notification_ids: result.notificationIds,
+      trace_id: result.traceId,
+    };
+  }
+
+  @Post('whatsapp')
+  @HttpCode(202)
+  @ApiOperation({ summary: 'Send a WhatsApp notification' })
+  async sendWhatsapp(
+    @Body() dto: SendWhatsappDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.notificationsService.sendWhatsapp(dto);
+    response.status(result.idempotent ? 200 : 202);
+    return {
+      notification_id: result.notificationIds[0],
+      notification_ids: result.notificationIds,
+      trace_id: result.traceId,
+    };
+  }
+
+  @Post(['socket', 'socket-io'])
+  @HttpCode(202)
+  @ApiOperation({ summary: 'Send a Socket.IO real-time notification' })
+  async sendSocket(
+    @Body() dto: SendSocketDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.notificationsService.sendSocket(dto);
+    response.status(result.idempotent ? 200 : 202);
+    return {
+      notification_id: result.notificationIds[0],
+      notification_ids: result.notificationIds,
+      trace_id: result.traceId,
+    };
+  }
+
+  @Get('logs')
+  @ApiOperation({
+    summary: 'Get paginated delivery logs within a required date range',
+  })
+  async logs(@Query() query: GetNotificationLogsDto) {
+    return this.notificationsService.getLogs(query);
+  }
+
+  @Get('templates')
+  @ApiOperation({
+    summary: 'List available notification templates with extracted parameters',
+  })
+  @ApiQuery({
+    name: 'channel',
+    enum: NotificationChannel,
+    required: false,
+    description: 'Filter templates by notification channel',
+  })
+  async listTemplates(@Query('channel') channel?: NotificationChannel) {
+    return this.notificationsService.listTemplates(channel);
+  }
+
+  @Get('templates/:code')
+  @ApiOperation({
+    summary:
+      'Get template details, required parameters, and sample payload for a specific template',
+  })
+  @ApiQuery({
+    name: 'channel',
+    enum: NotificationChannel,
+    required: false,
+    description: 'Filter template by notification channel',
+  })
+  async getTemplateDetails(
+    @Param('code') code: string,
+    @Query('channel') channel?: NotificationChannel,
+  ) {
+    return this.notificationsService.getTemplateDetails(code, channel);
   }
 }

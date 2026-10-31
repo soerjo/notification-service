@@ -1,0 +1,16 @@
+{
+  "company_name": "Starlight Logistics",
+  "vendor_name": "Pacific Hardware Distro Ltd",
+  "preheader_text": "Official Purchase Order {{po_number}} authorized for fulfillment.",
+  "badge_label": "OFFICIAL PROCUREMENT",
+  "headline": "Purchase Order #{{po_number}}",
+  "po_number": "PO-882910",
+  "po_date": "October 24, 2026",
+  "shipping_destination": "Warehouse Hub B, 50 Logistics Blvd, Newark, NJ",
+  "items_summary": "100x Edge Gateway Routers Model X9",
+  "total_po_value": "$18,500.00 USD",
+  "cta_label": "Acknowledge & Confirm PO",
+  "po_portal_url": "https://starlight.example.com/procurement/po-882910",
+  "company_address": "45 Broadway, New York, NY 10006",
+  "unsubscribe_url": "https://starlight.example.com/unsub"
+}

@@ -127,30 +127,39 @@ async function main() {
     const allCodes = [item.code, ...(item.aliases ?? [])];
 
     for (const code of allCodes) {
-      await prisma.template.upsert({
+      const existing = await prisma.template.findFirst({
         where: {
-          code_channel: {
-            code,
-            channel: NotificationChannel.EMAIL,
-          },
-        },
-        update: {
-          name: item.name,
-          description: item.description,
-          subject: item.subject,
-          body,
-          isActive: true,
-        },
-        create: {
+          domainId: null,
           code,
           channel: NotificationChannel.EMAIL,
-          name: item.name,
-          description: item.description,
-          subject: item.subject,
-          body,
-          isActive: true,
         },
       });
+
+      if (existing) {
+        await prisma.template.update({
+          where: { id: existing.id },
+          data: {
+            name: item.name,
+            description: item.description,
+            subject: item.subject,
+            body,
+            isActive: true,
+          },
+        });
+      } else {
+        await prisma.template.create({
+          data: {
+            domainId: null,
+            code,
+            channel: NotificationChannel.EMAIL,
+            name: item.name,
+            description: item.description,
+            subject: item.subject,
+            body,
+            isActive: true,
+          },
+        });
+      }
       console.log(`✓ Seeded template [EMAIL] ${code}`);
     }
   }

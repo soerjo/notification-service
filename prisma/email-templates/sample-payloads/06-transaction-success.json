@@ -1,0 +1,16 @@
+{
+  "company_name": "PayFlow Gateway",
+  "user_name": "Elena Rostova",
+  "preheader_text": "Your payment of {{amount_paid}} has been successfully processed.",
+  "badge_label": "PAYMENT SUCCESSFUL",
+  "headline": "Payment Received",
+  "transaction_id": "TXN-2026-99381",
+  "payment_method": "Mastercard •••• 8812",
+  "transaction_date": "Oct 24, 2026 14:22 WIB",
+  "item_name": "Annual Developer Pro Plan",
+  "amount_paid": "$240.00 USD",
+  "cta_label": "View Transaction History",
+  "history_url": "https://payflow.example.com/transactions/TXN-2026-99381",
+  "company_address": "Tower 2 IFC, Marina Bay, Singapore",
+  "unsubscribe_url": "https://payflow.example.com/unsub"
+}

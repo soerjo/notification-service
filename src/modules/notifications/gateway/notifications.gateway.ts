@@ -25,7 +25,9 @@ export class NotificationsGateway
   constructor(private readonly configService: ConfigService) {}
 
   handleConnection(client: Socket): void {
-    const expected = this.configService.get<string>('INTERNAL_API_TOKEN');
+    const expected =
+      this.configService.get<string>('API_KEY') ||
+      this.configService.get<string>('INTERNAL_API_TOKEN');
     const token = client.handshake.query.token;
     const provided = Array.isArray(token) ? token[0] : token;
 

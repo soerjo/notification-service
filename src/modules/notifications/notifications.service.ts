@@ -1,25 +1,22 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { createHash, randomUUID } from 'node:crypto';
-import { NotificationChannel, Prisma } from '@prisma/client';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { NotificationChannel, Prisma, type Notification } from '@prisma/client';
 import { sanitize } from '../../common/utils/sanitizer.util.js';
-import { TemplateService } from './templates/template.service.js';
-import {
-  NotificationsRepository,
-  type CreateNotificationInput,
-} from './notifications.repository.js';
-import { NotificationsQueueService } from './notifications.queue.js';
 import {
   SendNotificationDto,
-  type NotificationDestinationDto,
-} from './dto/send-notification.dto.js';
-
-const MAX_IDEMPOTENCY_KEY_LENGTH = 255;
-const MAX_TITLE_LENGTH = 255;
-
-interface ResolvedRecipient {
-  recipientId: string;
-  destination: NotificationDestinationDto;
-}
+  NotificationDestinationDto,
+  SendEmailDto,
+  SendTelegramDto,
+  SendWhatsappDto,
+  SendSocketDto,
+  GetNotificationLogsDto,
+} from './dto/index.js';
+import {
+  NotificationsRepository,
+  CreateNotificationInput,
+} from './notifications.repository.js';
+import { TemplateService } from './templates/template.service.js';
+import { NotificationsQueueService } from './notifications.queue.js';
 
 export interface SendResult {
   notificationIds: string[];
@@ -27,8 +24,18 @@ export interface SendResult {
   idempotent: boolean;
 }
 
+interface ResolvedRecipient {
+  recipientId: string;
+  destination: NotificationDestinationDto;
+}
+
+const MAX_TITLE_LENGTH = 255;
+const MAX_IDEMPOTENCY_KEY_LENGTH = 255;
+
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     private readonly repository: NotificationsRepository,
     private readonly templateService: TemplateService,
@@ -53,7 +60,12 @@ export class NotificationsService {
 
     const traceId = dto.trace_id ?? randomUUID();
     const recipients = this.buildRecipients(dto);
-    const items = this.buildItems(dto, recipients, traceId, baseIdempotencyKey);
+    const items = await this.buildItems(
+      dto,
+      recipients,
+      traceId,
+      baseIdempotencyKey,
+    );
 
     const notificationIds: string[] = [];
     let createdAny = false;
@@ -70,9 +82,168 @@ export class NotificationsService {
     return { notificationIds, traceId, idempotent: !createdAny };
   }
 
-  async getLogs(notificationId: string) {
-    await this.repository.findById(notificationId);
-    return this.repository.findDeliveryLogs(notificationId);
+  async sendEmail(dto: SendEmailDto): Promise<SendResult> {
+    const contentBody = dto.body ?? dto.html;
+    if (!dto.template_code && !contentBody) {
+      throw new BadRequestException(
+        'Either body/html or template_code must be provided for email',
+      );
+    }
+
+    const metadata: Record<string, unknown> = {
+      ...(dto.metadata ?? {}),
+      ...(dto.template_data ?? {}),
+      ...(dto.html ? { html: dto.html } : {}),
+      ...(dto.cc ? { cc: dto.cc } : {}),
+      ...(dto.bcc ? { bcc: dto.bcc } : {}),
+      ...(dto.reply_to ? { reply_to: dto.reply_to } : {}),
+    };
+
+    return this.send({
+      idempotency_key: dto.idempotency_key,
+      trace_id: dto.trace_id,
+      recipient_id: dto.recipient_id ?? dto.to,
+      channels: [NotificationChannel.EMAIL],
+      destination: { email: dto.to },
+      content: {
+        title: dto.subject,
+        body: contentBody,
+      },
+      template_code: dto.template_code,
+      metadata,
+    });
+  }
+
+  async sendTelegram(dto: SendTelegramDto): Promise<SendResult> {
+    if (!dto.template_code && !dto.message) {
+      throw new BadRequestException(
+        'Either message or template_code must be provided for telegram',
+      );
+    }
+
+    const metadata: Record<string, unknown> = {
+      ...(dto.metadata ?? {}),
+      ...(dto.template_data ?? {}),
+      ...(dto.parse_mode ? { parse_mode: dto.parse_mode } : {}),
+    };
+
+    return this.send({
+      idempotency_key: dto.idempotency_key,
+      trace_id: dto.trace_id,
+      recipient_id: dto.recipient_id ?? dto.chat_id,
+      channels: [NotificationChannel.TELEGRAM],
+      destination: { telegram_chat_id: dto.chat_id },
+      content: {
+        title: dto.title,
+        body: dto.message,
+      },
+      template_code: dto.template_code,
+      metadata,
+    });
+  }
+
+  async sendWhatsapp(dto: SendWhatsappDto): Promise<SendResult> {
+    if (!dto.template_code && !dto.message) {
+      throw new BadRequestException(
+        'Either message or template_code must be provided for whatsapp',
+      );
+    }
+
+    const metadata: Record<string, unknown> = {
+      ...(dto.metadata ?? {}),
+      ...(dto.template_data ?? {}),
+      ...(dto.media_url ? { media_url: dto.media_url } : {}),
+    };
+
+    return this.send({
+      idempotency_key: dto.idempotency_key,
+      trace_id: dto.trace_id,
+      recipient_id: dto.recipient_id ?? dto.phone_number,
+      channels: [NotificationChannel.WHATSAPP],
+      destination: { whatsapp_number: dto.phone_number },
+      content: {
+        body: dto.message,
+      },
+      template_code: dto.template_code,
+      metadata,
+    });
+  }
+
+  async sendSocket(dto: SendSocketDto): Promise<SendResult> {
+    if (!dto.template_code && !dto.message && !dto.payload) {
+      throw new BadRequestException(
+        'Either message, payload, or template_code must be provided for socket',
+      );
+    }
+
+    const metadata: Record<string, unknown> = {
+      ...(dto.metadata ?? {}),
+      ...(dto.template_data ?? {}),
+      ...(dto.payload ? { socket_payload: dto.payload } : {}),
+      ...(dto.event ? { event: dto.event } : {}),
+    };
+
+    return this.send({
+      idempotency_key: dto.idempotency_key,
+      trace_id: dto.trace_id,
+      recipient_id: dto.recipient_id ?? dto.room,
+      channels: [NotificationChannel.SOCKET_IO],
+      destination: { socket_room: dto.room },
+      content: {
+        title: dto.title,
+        body: dto.message ?? (dto.payload ? JSON.stringify(dto.payload) : ''),
+      },
+      template_code: dto.template_code,
+      metadata,
+    });
+  }
+
+  async getLogs(query: GetNotificationLogsDto) {
+    if (!query?.start_date || !query?.end_date) {
+      throw new BadRequestException('start_date and end_date are required');
+    }
+
+    const start = new Date(query.start_date);
+    let end = new Date(query.end_date);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      throw new BadRequestException(
+        'Invalid date format for start_date or end_date',
+      );
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(query.end_date.trim())) {
+      end = new Date(`${query.end_date.trim()}T23:59:59.999Z`);
+    }
+
+    if (start > end) {
+      throw new BadRequestException(
+        'start_date must be before or equal to end_date',
+      );
+    }
+
+    if (query.notification_id) {
+      await this.repository.findById(query.notification_id);
+    }
+
+    return this.repository.findDeliveryLogsPaginated({
+      notificationId: query.notification_id,
+      startDate: start,
+      endDate: end,
+      page: query.page,
+      limit: query.limit,
+      order: query.order,
+      channel: query.channel,
+      status: query.status,
+    });
+  }
+
+  async listTemplates(channel?: NotificationChannel) {
+    return this.templateService.listTemplates(channel);
+  }
+
+  async getTemplateDetails(code: string, channel?: NotificationChannel) {
+    return this.templateService.getTemplateDetails(code, channel);
   }
 
   private buildRecipients(dto: SendNotificationDto): ResolvedRecipient[] {
@@ -97,12 +268,12 @@ export class NotificationsService {
     );
   }
 
-  private buildItems(
+  private async buildItems(
     dto: SendNotificationDto,
     recipients: ResolvedRecipient[],
     traceId: string,
     baseIdempotencyKey: string,
-  ): CreateNotificationInput[] {
+  ): Promise<CreateNotificationInput[]> {
     const items: CreateNotificationInput[] = [];
 
     for (const recipient of recipients) {
@@ -111,7 +282,11 @@ export class NotificationsService {
           channel,
           recipient.destination,
         );
-        const { title, content } = this.renderContent(dto, recipient);
+        const { title, content } = await this.renderContent(
+          dto,
+          channel,
+          recipient,
+        );
 
         items.push({
           traceId,
@@ -122,6 +297,7 @@ export class NotificationsService {
             channel,
             recipient.recipientId,
           ),
+          domainId: dto.domain_id ?? null,
           channel,
           recipientId: recipient.recipientId,
           recipientTarget,
@@ -132,6 +308,7 @@ export class NotificationsService {
             metadata: dto.metadata ?? {},
             content: dto.content ?? {},
             destination: recipient.destination,
+            domain_id: dto.domain_id,
           }) as Prisma.InputJsonValue,
         });
       }
@@ -155,9 +332,6 @@ export class NotificationsService {
       case NotificationChannel.EMAIL:
         target = destination.email;
         break;
-      case NotificationChannel.FCM:
-        target = destination.fcm_token;
-        break;
       case NotificationChannel.WHATSAPP:
         target = destination.whatsapp_number;
         break;
@@ -174,10 +348,11 @@ export class NotificationsService {
     return target;
   }
 
-  private renderContent(
+  private async renderContent(
     dto: SendNotificationDto,
+    channel: NotificationChannel,
     recipient: ResolvedRecipient,
-  ): { title: string; content: string } {
+  ): Promise<{ title: string; content: string }> {
     const context: Record<string, unknown> = {
       ...(dto.metadata ?? {}),
       ...(dto.content ?? {}),
@@ -185,12 +360,22 @@ export class NotificationsService {
     };
 
     if (dto.template_code) {
-      if (!this.templateService.has(dto.template_code)) {
+      const hasTemplate = await this.templateService.has(
+        dto.template_code,
+        channel,
+        dto.domain_id,
+      );
+      if (!hasTemplate) {
         throw new BadRequestException(
           `Unknown template_code: ${dto.template_code}`,
         );
       }
-      const rendered = this.templateService.render(dto.template_code, context);
+      const rendered = await this.templateService.render(
+        dto.template_code,
+        channel,
+        context,
+        dto.domain_id,
+      );
       return {
         title: rendered.title.slice(0, MAX_TITLE_LENGTH),
         content: rendered.body,
@@ -220,37 +405,31 @@ export class NotificationsService {
     if (recipientCount === 1 && channelCount === 1) {
       return base.slice(0, MAX_IDEMPOTENCY_KEY_LENGTH);
     }
-
-    const raw = `${base}::${channel}::${recipientId}`;
-    if (raw.length <= MAX_IDEMPOTENCY_KEY_LENGTH) {
-      return raw;
-    }
-    return createHash('sha256').update(raw).digest('hex');
+    return `${base}::${channel}::${recipientId}`.slice(
+      0,
+      MAX_IDEMPOTENCY_KEY_LENGTH,
+    );
   }
 
   private async persist(
-    item: CreateNotificationInput,
-  ): Promise<{ notification: { id: string }; created: boolean }> {
-    const existing = await this.repository.findByIdempotencyKey(
-      item.idempotencyKey,
-    );
-    if (existing) {
-      return { notification: existing, created: false };
-    }
-
+    input: CreateNotificationInput,
+  ): Promise<{ notification: Notification; created: boolean }> {
     try {
-      const notification = await this.repository.create(item);
+      const notification = await this.repository.create(input);
       return { notification, created: true };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        const raced = await this.repository.findByIdempotencyKey(
-          item.idempotencyKey,
+        this.logger.warn(
+          `Idempotency key collision for ${input.idempotencyKey}; fetching existing notification`,
         );
-        if (raced) {
-          return { notification: raced, created: false };
+        const existing = await this.repository.findByIdempotencyKey(
+          input.idempotencyKey,
+        );
+        if (existing) {
+          return { notification: existing, created: false };
         }
       }
       throw error;

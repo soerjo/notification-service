@@ -18,20 +18,16 @@ NODE_ENV=production
 PORT=3400
 DATABASE_URL=postgresql://<PGU>:<PGP>@postgres_db.internal_net:5432/notification_db?schema=public
 REDIS_URL=redis://redis_cache.internal_net:6379/1
-INTERNAL_API_TOKEN=<existing, lihat container-envs setelah backup>
+API_KEY=<32B secret untuk x-api-key dan x-signature service-to-service>
+INTERNAL_API_TOKEN=<optional backward-compat fallback untuk API_KEY>
 TELEGRAM_BOT_TOKEN=<KOSONG dulu — isi saat channel Telegram mau live>
 SMTP_HOST= / SMTP_PORT=587 / SMTP_USER= / SMTP_PASS= / SMTP_FROM=noreply@soerjoprod.com
-JWT_ACCESS_SECRET=<random 32B — dummy legacy, env validation masih menuntut>
-JWT_REFRESH_SECRET=<random 32B>
-GOOGLE_CLIENT_ID=dummy-disabled-v1
-GOOGLE_CLIENT_SECRET=dummy-disabled-v1
-FRONTEND_URL=http://100.92.245.124:3301
 CORS_ORIGINS=http://localhost:3301,http://100.92.245.124:3301
 ```
 
 Catatan:
 - SMTP kosong = channel EMAIL otomatis disable (terverifikasi graceful di smoke test)
-- Env validation template masih menuntut JWT_ACCESS_SECRET/JWT_REFRESH_SECRET/GOOGLE_* — diisi dummy. **Follow-up refactor**: bersihkan env.validation.ts agar tidak menuntut var yang tak dipakai.
+- Auth service-to-service menggunakan X-Api-Key dan X-Signature HMAC-SHA256 (kompatibel dengan billing-service).
 
 ## 3. Langkah deploy (urut)
 
