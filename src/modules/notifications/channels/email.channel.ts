@@ -44,21 +44,32 @@ export class EmailChannel implements NotificationChannel {
 
   async send(message: ChannelMessage): Promise<ChannelSendResult> {
     const payloadObj = message.payload as Record<string, unknown> | undefined;
-    const domainId =
-      typeof payloadObj?.domain_id === 'string'
-        ? payloadObj.domain_id
-        : undefined;
+    const metadataObj = payloadObj?.metadata as
+      Record<string, unknown> | undefined;
+    const contentObj = payloadObj?.content as
+      Record<string, unknown> | undefined;
 
+    const candidates = [
+      payloadObj?.domain_id,
+      payloadObj?.domainId,
+      metadataObj?.domain_id,
+      metadataObj?.domainId,
+      message.domainId,
+      message.domain_id,
+    ];
+    let domainId: string | undefined;
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim().length > 0) {
+        domainId = candidate.trim();
+        break;
+      }
+    }
     const { transporter, from } = await this.resolveTransporter(domainId);
     if (!transporter) {
       throw new Error(
         'Email channel is not configured. Provide SMTP env vars or configure notification_platforms in DB.',
       );
     }
-    const metadataObj = payloadObj?.metadata as
-      Record<string, unknown> | undefined;
-    const contentObj = payloadObj?.content as
-      Record<string, unknown> | undefined;
     const customHtml =
       (typeof payloadObj?.html === 'string' ? payloadObj.html : undefined) ??
       (typeof metadataObj?.html === 'string' ? metadataObj.html : undefined);
@@ -85,12 +96,14 @@ export class EmailChannel implements NotificationChannel {
       const hasTemplate = await this.templateService.has(
         message.templateCode,
         this.channel,
+        domainId,
       );
       if (hasTemplate) {
         html = await this.templateService.renderBody(
           message.templateCode,
           this.channel,
           templateContext,
+          domainId,
         );
       }
     }
@@ -134,25 +147,26 @@ export class EmailChannel implements NotificationChannel {
     const cfg = platform?.config;
 
     if (cfg?.host) {
-      const poolKey = `${cfg.host}:${cfg.port ?? 587}:${cfg.user ?? ''}`;
+      const host = (cfg.host as string) ?? '';
+      const port = Number(cfg.port ?? 587);
+      const user = (cfg.user as string) ?? '';
+      const pass = (cfg.pass as string) ?? '';
+      const poolKey = `${host}:${port}:${user}`;
       let transporter = this.transporterPool.get(poolKey);
 
       if (!transporter) {
-        const port = Number(cfg.port ?? 587);
         transporter = nodemailer.createTransport({
-          host: cfg.host as string,
+          host,
           port,
           secure: port === 465 || cfg.secure === true,
-          auth: cfg.user
-            ? { user: cfg.user as string, pass: (cfg.pass as string) ?? '' }
-            : undefined,
+          auth: user ? { user, pass } : undefined,
         });
         this.transporterPool.set(poolKey, transporter);
       }
 
       return {
         transporter,
-        from: (cfg.from as string) ?? this.defaultFrom,
+        from: typeof cfg.from === 'string' ? cfg.from : this.defaultFrom,
       };
     }
 

@@ -114,14 +114,13 @@ describe('TemplateService', () => {
 
   describe('domain scoped template resolution', () => {
     it('prioritizes domain template over global template when domainId is passed', async () => {
-      mockPrisma.template.findFirst
-        .mockResolvedValueOnce({
-          code: 'otp',
-          channel: NotificationChannel.EMAIL,
-          name: 'CMS OTP',
-          subject: 'CMS Custom OTP',
-          body: 'CMS Code: {{otp}}',
-        });
+      mockPrisma.template.findFirst.mockResolvedValueOnce({
+        code: 'otp',
+        channel: NotificationChannel.EMAIL,
+        name: 'CMS OTP',
+        subject: 'CMS Custom OTP',
+        body: 'CMS Code: {{otp}}',
+      });
 
       const rendered = await service.render(
         'otp',
