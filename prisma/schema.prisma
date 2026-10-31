@@ -29,6 +29,7 @@ enum DeliveryLogStatus {
 
 model NotificationPlatform {
   id        String              @id @default(uuid())
+  domainId  String?             @map("domain_id") @db.VarChar(64)
   channel   NotificationChannel
   name      String              @db.VarChar(100)
   isActive  Boolean             @default(true) @map("is_active")
@@ -37,6 +38,8 @@ model NotificationPlatform {
   createdAt DateTime            @default(now()) @map("created_at")
   updatedAt DateTime            @updatedAt @map("updated_at")
 
+  @@unique([domainId, channel, name])
+  @@index([domainId])
   @@map("notification_platforms")
 }
 

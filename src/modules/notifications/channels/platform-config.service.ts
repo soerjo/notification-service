@@ -14,16 +14,35 @@ export class PlatformConfigService {
 
   async getActivePlatform(
     channel: NotificationChannel,
+    domainId?: string | null,
   ): Promise<PlatformConfig | null> {
-    const platform = await this.prisma.notificationPlatform.findFirst({
-      where: { channel, isActive: true },
+    if (domainId) {
+      const domainPlatform = await this.prisma.notificationPlatform.findFirst({
+        where: { domainId, channel, isActive: true },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+      });
+      if (domainPlatform) {
+        return this.mapConfig(domainPlatform);
+      }
+    }
+
+    const globalPlatform = await this.prisma.notificationPlatform.findFirst({
+      where: { domainId: null, channel, isActive: true },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
     });
 
-    if (!platform) {
+    if (!globalPlatform) {
       return null;
     }
 
+    return this.mapConfig(globalPlatform);
+  }
+
+  private mapConfig(platform: {
+    id: string;
+    name: string;
+    config: unknown;
+  }): PlatformConfig {
     const config =
       platform.config &&
       typeof platform.config === 'object' &&
@@ -43,10 +62,11 @@ export class PlatformConfigService {
     name: string,
     config: Record<string, unknown>,
     isDefault = false,
+    domainId?: string | null,
   ) {
     if (isDefault) {
       await this.prisma.notificationPlatform.updateMany({
-        where: { channel },
+        where: { channel, domainId: domainId ?? null },
         data: { isDefault: false },
       });
     }
@@ -54,6 +74,7 @@ export class PlatformConfigService {
     return this.prisma.notificationPlatform.create({
       data: {
         channel,
+        domainId: domainId ?? null,
         name,
         config: config as Prisma.InputJsonValue,
         isDefault,
