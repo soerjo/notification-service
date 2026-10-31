@@ -4,3 +4,7 @@ export * from './send-telegram.dto.js';
 export * from './send-whatsapp.dto.js';
 export * from './send-socket.dto.js';
 export * from './get-notification-logs.dto.js';
+export * from './create-or-update-platform.dto.js';
+export * from './get-platforms.dto.js';
+export * from './create-or-update-template.dto.js';
+export * from './get-templates.dto.js';

@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import Handlebars from 'handlebars';
-import { NotificationChannel } from '@prisma/client';
+import { NotificationChannel, Prisma, type Template } from '@prisma/client';
+import type { CreateOrUpdateTemplateDto } from '../dto/index.js';
 import { PrismaService } from '../../../prisma/prisma.service.js';
 import { getTemplate } from '../../../templates/index.js';
 import {
@@ -72,8 +73,13 @@ export class TemplateService {
 
   async listTemplates(
     channel?: NotificationChannel,
+    domainId?: string,
   ): Promise<TemplateSummary[]> {
-    const where = channel ? { channel, isActive: true } : { isActive: true };
+    const where: Prisma.TemplateWhereInput = {
+      isActive: true,
+      ...(channel ? { channel } : {}),
+      ...(domainId !== undefined && domainId !== '' ? { domainId } : {}),
+    };
     const dbTemplates = await this.prisma.template.findMany({
       where,
       orderBy: [{ channel: 'asc' }, { code: 'asc' }],
@@ -93,6 +99,55 @@ export class TemplateService {
         parameters,
       };
     });
+  }
+
+  async createOrUpdateTemplate(
+    dto: CreateOrUpdateTemplateDto,
+  ): Promise<Template> {
+    const domainId = dto.domain_id?.trim() || null;
+    const code = dto.code.trim();
+    const channel = dto.channel;
+    const isActive = dto.is_active ?? true;
+
+    const existing = await this.prisma.template.findFirst({
+      where: { domainId, code, channel },
+    });
+
+    let saved: Template;
+    if (existing) {
+      saved = await this.prisma.template.update({
+        where: { id: existing.id },
+        data: {
+          name: dto.name,
+          description: dto.description ?? null,
+          subject: dto.subject ?? null,
+          body: dto.body,
+          isActive,
+        },
+      });
+    } else {
+      saved = await this.prisma.template.create({
+        data: {
+          domainId,
+          code,
+          channel,
+          name: dto.name,
+          description: dto.description ?? null,
+          subject: dto.subject ?? null,
+          body: dto.body,
+          isActive,
+        },
+      });
+    }
+
+    this.compiledCache.delete(
+      `${domainId ?? 'global'}:${code}:${channel}:title`,
+    );
+    this.compiledCache.delete(
+      `${domainId ?? 'global'}:${code}:${channel}:body`,
+    );
+
+    return saved;
   }
 
   async getTemplateDetails(

@@ -14,6 +14,9 @@ describe('NotificationsController', () => {
     getLogs: jest.Mock;
     listTemplates: jest.Mock;
     getTemplateDetails: jest.Mock;
+    createOrUpdatePlatform: jest.Mock;
+    listPlatforms: jest.Mock;
+    createOrUpdateTemplate: jest.Mock;
   };
   let mockResponse: Partial<Response>;
 
@@ -27,6 +30,9 @@ describe('NotificationsController', () => {
       getLogs: jest.fn(),
       listTemplates: jest.fn(),
       getTemplateDetails: jest.fn(),
+      createOrUpdatePlatform: jest.fn(),
+      listPlatforms: jest.fn(),
+      createOrUpdateTemplate: jest.fn(),
     };
     mockResponse = {
       status: jest.fn().mockReturnThis(),
@@ -228,6 +234,97 @@ describe('NotificationsController', () => {
     expect(result).toEqual(templates);
   });
 
+  it('listTemplates delegates with domain_id when provided', async () => {
+    const templates = [
+      {
+        code: 'order_receipt',
+        channel: NotificationChannel.EMAIL,
+        parameters: ['order_id'],
+      },
+    ];
+    serviceMock.listTemplates.mockResolvedValue(templates);
+
+    const result = await controller.listTemplates(
+      NotificationChannel.EMAIL,
+      'pos.soerjo.id',
+    );
+    expect(serviceMock.listTemplates).toHaveBeenCalledWith(
+      NotificationChannel.EMAIL,
+      'pos.soerjo.id',
+    );
+    expect(result).toEqual(templates);
+  });
+
+  it('createOrUpdatePlatform delegates to notificationsService.createOrUpdatePlatform', async () => {
+    const dto = {
+      channel: NotificationChannel.EMAIL,
+      name: 'hostinger-smtp',
+      config: { host: 'smtp.hostinger.com', port: 465, pass: 'secret' },
+      domain_id: 'pos.soerjo.id',
+      is_default: true,
+    };
+    const platformResponse = {
+      id: 'plat-1',
+      domainId: 'pos.soerjo.id',
+      channel: NotificationChannel.EMAIL,
+      name: 'hostinger-smtp',
+      config: { host: 'smtp.hostinger.com', port: 465, pass: '***MASKED***' },
+      isDefault: true,
+      isActive: true,
+    };
+    serviceMock.createOrUpdatePlatform.mockResolvedValue(platformResponse);
+
+    const result = await controller.createOrUpdatePlatform(dto);
+    expect(serviceMock.createOrUpdatePlatform).toHaveBeenCalledWith(dto);
+    expect(result).toEqual(platformResponse);
+  });
+
+  it('listPlatforms delegates to notificationsService.listPlatforms', async () => {
+    const query = {
+      domain_id: 'pos.soerjo.id',
+      channel: NotificationChannel.EMAIL,
+    };
+    const platforms = [
+      {
+        id: 'plat-1',
+        domainId: 'pos.soerjo.id',
+        channel: NotificationChannel.EMAIL,
+        name: 'hostinger-smtp',
+        config: { host: 'smtp.hostinger.com', port: 465, pass: '***MASKED***' },
+      },
+    ];
+    serviceMock.listPlatforms.mockResolvedValue(platforms);
+
+    const result = await controller.listPlatforms(query);
+    expect(serviceMock.listPlatforms).toHaveBeenCalledWith(query);
+    expect(result).toEqual(platforms);
+  });
+
+  it('createOrUpdateTemplate delegates to notificationsService.createOrUpdateTemplate', async () => {
+    const dto = {
+      domain_id: 'pos.soerjo.id',
+      code: 'welcome_user',
+      channel: NotificationChannel.EMAIL,
+      name: 'Welcome Template',
+      subject: 'Welcome {{user_name}}',
+      body: '<p>Welcome {{user_name}}</p>',
+    };
+    const savedTemplate = {
+      id: 'tpl-new-1',
+      domainId: 'pos.soerjo.id',
+      code: 'welcome_user',
+      channel: NotificationChannel.EMAIL,
+      name: 'Welcome Template',
+      subject: 'Welcome {{user_name}}',
+      body: '<p>Welcome {{user_name}}</p>',
+      isActive: true,
+    };
+    serviceMock.createOrUpdateTemplate.mockResolvedValue(savedTemplate);
+
+    const result: unknown = await controller.createOrUpdateTemplate(dto);
+    expect(serviceMock.createOrUpdateTemplate).toHaveBeenCalledWith(dto);
+    expect(result).toEqual(savedTemplate);
+  });
   it('getTemplateDetails delegates to notificationsService.getTemplateDetails', async () => {
     const details = {
       code: 'verification-email',

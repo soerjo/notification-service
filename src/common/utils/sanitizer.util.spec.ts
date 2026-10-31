@@ -4,21 +4,30 @@ describe('sanitize', () => {
   it('masks values of keys matching the sensitive pattern', () => {
     const result = sanitize({
       password: 'secret',
+      pass: 'secret-pass',
+      smtp_pass: 'smtp-secret',
       refreshToken: 'abc',
       otp: '123456',
       no_rekening: '1234567890',
       nrekening: '987',
+      client_secret: 'sec123',
+      authorization: 'Bearer xyz',
       username: 'john',
+      passenger: 'ok',
     }) as Record<string, unknown>;
 
     expect(result.password).toBe(MASKED_VALUE);
+    expect(result.pass).toBe(MASKED_VALUE);
+    expect(result.smtp_pass).toBe(MASKED_VALUE);
     expect(result.refreshToken).toBe(MASKED_VALUE);
     expect(result.otp).toBe(MASKED_VALUE);
     expect(result.no_rekening).toBe(MASKED_VALUE);
     expect(result.nrekening).toBe(MASKED_VALUE);
+    expect(result.client_secret).toBe(MASKED_VALUE);
+    expect(result.authorization).toBe(MASKED_VALUE);
     expect(result.username).toBe('john');
+    expect(result.passenger).toBe('ok');
   });
-
   it('matches sensitive keys case-insensitively', () => {
     const result = sanitize({ PASSWORD: 'x', Token: 'y' }) as Record<
       string,
