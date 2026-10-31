@@ -1,0 +1,15 @@
+{
+  "company_name": "StreamSync AI",
+  "user_name": "Claire Vance",
+  "preheader_text": "Your {{plan_name}} plan renews automatically on {{renewal_date}}.",
+  "badge_label": "PLAN RENEWAL NOTICE",
+  "headline": "Upcoming Plan Renewal",
+  "plan_name": "Team Enterprise Cloud",
+  "renewal_date": "November 05, 2026",
+  "renewal_amount": "$99.00 / month",
+  "payment_method": "Visa card ending in 3019",
+  "cta_label": "Manage Billing & Plan",
+  "billing_url": "https://streamsync.example.com/billing",
+  "company_address": "350 Mission St, San Francisco, CA",
+  "unsubscribe_url": "https://streamsync.example.com/unsub"
+}

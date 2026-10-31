@@ -4,15 +4,12 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { WinstonModule } from 'nest-winston';
 import { PrismaModule } from './prisma/prisma.module.js';
-import { AuthModule } from './modules/auth/auth.module.js';
-import { UsersModule } from './modules/users/users.module.js';
-import { OrganizationsModule } from './modules/organizations/organizations.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { MetricsModule } from './modules/metrics/metrics.module.js';
 import { RedisModule } from './modules/redis/redis.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
-import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
-import { RolesGuard } from './common/guards/roles.guard.js';
+import { SignaturesModule } from './modules/signatures/signatures.module.js';
+import { ApiKeyGuard } from './common/guards/api-key.guard.js';
 import { loggerConfig } from './config/logger.config.js';
 import { validate } from './config/env.validation.js';
 
@@ -20,20 +17,17 @@ import { validate } from './config/env.validation.js';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate }),
     WinstonModule.forRoot(loggerConfig),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     PrismaModule,
     RedisModule,
-    AuthModule,
-    UsersModule,
-    OrganizationsModule,
     HealthModule,
     MetricsModule,
     NotificationsModule,
+    SignaturesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
-    { provide: APP_GUARD, useClass: JwtAuthGuard },
-    { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: ApiKeyGuard },
   ],
 })
 export class AppModule {}

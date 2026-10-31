@@ -20,28 +20,44 @@ export class SocketIoChannel implements NotificationChannel {
 
   send(message: ChannelMessage): Promise<ChannelSendResult> {
     const start = performance.now();
+    const payloadObj = message.payload as Record<string, unknown> | undefined;
+    const metadataObj = payloadObj?.metadata as
+      Record<string, unknown> | undefined;
+    const customEvent =
+      (typeof payloadObj?.event === 'string' ? payloadObj.event : undefined) ??
+      (typeof metadataObj?.event === 'string' ? metadataObj.event : undefined);
+    const eventName =
+      customEvent && customEvent.trim().length > 0
+        ? customEvent.trim()
+        : NOTIFICATION_ROOM_EVENT;
+
+    const customPayload =
+      (payloadObj?.socket_payload as Record<string, unknown> | undefined) ??
+      (metadataObj?.socket_payload as Record<string, unknown> | undefined) ??
+      message.payload;
+
     const delivered = this.gateway.emitToRoom(
       message.recipientTarget,
-      NOTIFICATION_ROOM_EVENT,
+      eventName,
       {
         notificationId: message.notificationId,
         title: message.title,
         content: message.content,
-        payload: message.payload,
+        payload: customPayload,
         timestamp: new Date().toISOString(),
       },
     );
 
     const latencyMs = Math.round(performance.now() - start);
     this.logger.log(
-      `Socket.IO event ${NOTIFICATION_ROOM_EVENT} emitted to room ${message.recipientTarget} (delivered=${delivered})`,
+      `Socket.IO event ${eventName} emitted to room ${message.recipientTarget} (delivered=${delivered})`,
     );
 
     return Promise.resolve({
       ok: true,
       response: {
         room: message.recipientTarget,
-        event: NOTIFICATION_ROOM_EVENT,
+        event: eventName,
         delivered,
       },
       latencyMs,

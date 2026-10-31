@@ -8,10 +8,10 @@ import { NotificationsQueueService } from './notifications.queue.js';
 import { TemplateService } from './templates/template.service.js';
 import { NotificationsGateway } from './gateway/notifications.gateway.js';
 import { ChannelRegistry } from './channels/channel-registry.js';
+import { PlatformConfigService } from './channels/platform-config.service.js';
 import { TelegramChannel } from './channels/telegram.channel.js';
 import { EmailChannel } from './channels/email.channel.js';
 import { SocketIoChannel } from './channels/socket-io.channel.js';
-import { FcmChannel } from './channels/fcm.channel.js';
 import { WhatsappChannel } from './channels/whatsapp.channel.js';
 
 @Module({
@@ -25,12 +25,12 @@ import { WhatsappChannel } from './channels/whatsapp.channel.js';
     TemplateService,
     NotificationsGateway,
     ChannelRegistry,
+    PlatformConfigService,
     TelegramChannel,
     EmailChannel,
     SocketIoChannel,
-    FcmChannel,
     WhatsappChannel,
   ],
-  exports: [NotificationsService],
+  exports: [NotificationsService, TemplateService, PlatformConfigService],
 })
 export class NotificationsModule {}

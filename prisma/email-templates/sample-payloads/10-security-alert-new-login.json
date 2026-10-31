@@ -1,0 +1,15 @@
+{
+  "company_name": "CipherGuard",
+  "user_name": "Nathan Drake",
+  "preheader_text": "New sign-in detected from an unrecognized device or browser.",
+  "badge_label": "SECURITY NOTIFICATION",
+  "headline": "New Login Detected",
+  "browser_device": "Google Chrome 132 on macOS Sequoia",
+  "ip_address": "185.199.108.153",
+  "approx_location": "Frankfurt, Germany",
+  "timestamp": "October 24, 2026 at 22:41 UTC",
+  "cta_label": "This Wasn't Me (Secure Account)",
+  "lock_url": "https://cipherguard.example.com/security/lock?session=sess_99318",
+  "company_address": "Taunusanlage 8, 60329 Frankfurt am Main",
+  "unsubscribe_url": "https://cipherguard.example.com/unsub"
+}

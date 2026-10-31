@@ -1,0 +1,21 @@
+{
+  "company_name": "Vertex Technologies Ltd",
+  "client_name": "Acme Global Corp",
+  "preheader_text": "Invoice {{invoice_number}} for {{total_amount}} is now ready.",
+  "badge_label": "TAX INVOICE",
+  "headline": "Invoice {{invoice_number}}",
+  "invoice_number": "INV-2026-4402",
+  "invoice_date": "October 24, 2026",
+  "due_date": "November 07, 2026",
+  "item1_desc": "Cloud Compute Dedicated Instance (4x Nodes)",
+  "item1_price": "$1,200.00",
+  "item2_desc": "24/7 Enterprise Tier SRE Support",
+  "item2_price": "$450.00",
+  "subtotal": "$1,650.00",
+  "tax_amount": "$165.00 (10% VAT)",
+  "total_amount": "$1,815.00 USD",
+  "cta_label": "Pay Invoice Online",
+  "invoice_url": "https://vertex.example.com/billing/pay/INV-2026-4402",
+  "company_address": "100 Bishopsgate, London EC2N 4AG, UK",
+  "unsubscribe_url": "https://vertex.example.com/unsub"
+}

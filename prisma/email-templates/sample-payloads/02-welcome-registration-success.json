@@ -1,0 +1,15 @@
+{
+  "company_name": "CloudScale HQ",
+  "user_name": "Sarah Jenkins",
+  "preheader_text": "Welcome aboard! Here is your quick start guide.",
+  "badge_label": "REGISTRATION COMPLETE",
+  "headline": "Welcome to the family, {{user_name}}!",
+  "welcome_message": "Your account is officially active and ready. We built {{company_name}} to help you deploy microservices and manage databases without operational headaches.",
+  "step1_title": "1. Create your first project workspace",
+  "step2_title": "2. Connect your Git repository (GitHub/GitLab)",
+  "step3_title": "3. Invite teammates and configure access roles",
+  "cta_label": "Go to Dashboard",
+  "dashboard_url": "https://cloudscale.example.com/dashboard",
+  "company_address": "100 Market St, Suite 400, San Francisco, CA",
+  "unsubscribe_url": "https://cloudscale.example.com/unsub"
+}

@@ -7,48 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum RoleName {
-  SYSTEM
-  ADMIN
-  USER
-}
-
-model User {
-  id                    String   @id @default(uuid())
-  email                 String   @unique
-  password              String
-  firstName             String?
-  lastName              String?
-  isActive              Boolean  @default(true)
-  forgotPasswordRequest Boolean  @default(false)
-  role                  RoleName @default(USER)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  organizationId        String
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@map("users")
-}
-
-model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique
-  logoUrl   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  users User[]
-
-  @@map("organizations")
-}
-
 enum NotificationChannel {
   SOCKET_IO
   TELEGRAM
   EMAIL
-  FCM
   WHATSAPP
 }
 
@@ -65,10 +27,42 @@ enum DeliveryLogStatus {
   FAILED
 }
 
+model NotificationPlatform {
+  id        String              @id @default(uuid())
+  channel   NotificationChannel
+  name      String              @db.VarChar(100)
+  isActive  Boolean             @default(true) @map("is_active")
+  isDefault Boolean             @default(false) @map("is_default")
+  config    Json                @default("{}")
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  @@map("notification_platforms")
+}
+
+model Template {
+  id          String              @id @default(uuid())
+  domainId    String?             @map("domain_id") @db.VarChar(64)
+  code        String              @db.VarChar(64)
+  channel     NotificationChannel
+  name        String              @db.VarChar(128)
+  description String?             @db.Text
+  subject     String?             @db.VarChar(255) // For Email Subject / Notification Title
+  body        String              @db.Text        // Handlebars string/HTML (e.g. HTML email, Markdown telegram, text whatsapp)
+  isActive    Boolean             @default(true) @map("is_active")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  @@unique([domainId, code, channel])
+  @@index([domainId])
+  @@map("templates")
+}
+
 model Notification {
   id              String              @id @default(uuid())
   traceId         String              @map("trace_id") @db.VarChar(64)
   idempotencyKey  String              @unique @map("idempotency_key") @db.VarChar(255)
+  domainId        String?             @map("domain_id") @db.VarChar(64)
   channel         NotificationChannel
   recipientId     String              @map("recipient_id") @db.VarChar(128)
   recipientTarget String              @map("recipient_target") @db.VarChar(255)
@@ -84,6 +78,7 @@ model Notification {
   deliveryLogs NotificationDeliveryLog[]
 
   @@index([traceId])
+  @@index([domainId])
   @@index([status])
   @@index([idempotencyKey(ops: raw("text_pattern_ops"))], map: "notifications_idempotency_key_pattern_idx")
   @@map("notifications")
