@@ -1,6 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { NotificationChannel, Prisma } from '@prisma/client';
+import {
+  NotificationChannel,
+  NotificationPlatform,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service.js';
+import { sanitize } from '../../../common/utils/sanitizer.util.js';
+import type {
+  CreateOrUpdatePlatformDto,
+  GetPlatformsDto,
+} from '../dto/index.js';
 
 export interface PlatformConfig {
   id?: string;
@@ -57,29 +66,96 @@ export class PlatformConfigService {
     };
   }
 
+  async createOrUpdatePlatform(
+    dto: CreateOrUpdatePlatformDto,
+  ): Promise<NotificationPlatform> {
+    const domainId = dto.domain_id?.trim() || null;
+    const isDefault = dto.is_default ?? false;
+    const isActive = dto.is_active ?? true;
+
+    if (isDefault) {
+      await this.prisma.notificationPlatform.updateMany({
+        where: { channel: dto.channel, domainId },
+        data: { isDefault: false },
+      });
+    }
+
+    const existing = await this.prisma.notificationPlatform.findFirst({
+      where: {
+        channel: dto.channel,
+        domainId,
+        name: dto.name,
+      },
+    });
+
+    let saved: NotificationPlatform;
+    if (existing) {
+      saved = await this.prisma.notificationPlatform.update({
+        where: { id: existing.id },
+        data: {
+          config: dto.config as Prisma.InputJsonValue,
+          isDefault,
+          isActive,
+        },
+      });
+    } else {
+      saved = await this.prisma.notificationPlatform.create({
+        data: {
+          channel: dto.channel,
+          domainId,
+          name: dto.name,
+          config: dto.config as Prisma.InputJsonValue,
+          isDefault,
+          isActive,
+        },
+      });
+    }
+
+    const sanitizedConfig = sanitize(saved.config) as Prisma.JsonValue;
+    return {
+      ...saved,
+      config: sanitizedConfig,
+    };
+  }
+
+  async listPlatforms(
+    filter?: GetPlatformsDto,
+  ): Promise<NotificationPlatform[]> {
+    const where: Prisma.NotificationPlatformWhereInput = {};
+    if (filter?.domain_id !== undefined && filter.domain_id !== '') {
+      where.domainId = filter.domain_id.trim();
+    }
+    if (filter?.channel !== undefined) {
+      where.channel = filter.channel;
+    }
+
+    const platforms = await this.prisma.notificationPlatform.findMany({
+      where,
+      orderBy: [{ channel: 'asc' }, { name: 'asc' }],
+    });
+
+    return platforms.map((p) => ({
+      ...p,
+      config: sanitize(p.config as Record<string, unknown>) as Record<
+        string,
+        unknown
+      >,
+    })) as unknown as NotificationPlatform[];
+  }
+
   async savePlatform(
     channel: NotificationChannel,
     name: string,
     config: Record<string, unknown>,
     isDefault = false,
     domainId?: string | null,
-  ) {
-    if (isDefault) {
-      await this.prisma.notificationPlatform.updateMany({
-        where: { channel, domainId: domainId ?? null },
-        data: { isDefault: false },
-      });
-    }
-
-    return this.prisma.notificationPlatform.create({
-      data: {
-        channel,
-        domainId: domainId ?? null,
-        name,
-        config: config as Prisma.InputJsonValue,
-        isDefault,
-        isActive: true,
-      },
+  ): Promise<NotificationPlatform> {
+    return this.createOrUpdatePlatform({
+      channel,
+      name,
+      config,
+      is_default: isDefault,
+      domain_id: domainId ?? undefined,
     });
   }
 }

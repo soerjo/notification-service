@@ -8,6 +8,8 @@ describe('TemplateService', () => {
     template: {
       findFirst: jest.Mock;
       findMany: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
     };
   };
 
@@ -16,6 +18,8 @@ describe('TemplateService', () => {
       template: {
         findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue(null),
       },
     };
     service = new TemplateService(mockPrisma as unknown as PrismaService);
@@ -176,6 +180,110 @@ describe('TemplateService', () => {
       );
     });
 
+    it('listTemplates applies domainId filter when provided', async () => {
+      mockPrisma.template.findMany.mockResolvedValueOnce([
+        {
+          code: 'tpl-domain',
+          channel: NotificationChannel.EMAIL,
+          name: 'Domain Tpl',
+          description: 'Desc',
+          subject: 'Hello',
+          body: 'World',
+        },
+      ]);
+
+      const list = await service.listTemplates(
+        NotificationChannel.EMAIL,
+        'pos.soerjo.id',
+      );
+      expect(list).toHaveLength(1);
+      expect(mockPrisma.template.findMany).toHaveBeenCalledWith({
+        where: {
+          isActive: true,
+          channel: NotificationChannel.EMAIL,
+          domainId: 'pos.soerjo.id',
+        },
+        orderBy: [{ channel: 'asc' }, { code: 'asc' }],
+      });
+    });
+
+    it('createOrUpdateTemplate creates template if not existing', async () => {
+      mockPrisma.template.findFirst.mockResolvedValueOnce(null);
+      const created = {
+        id: 'tpl-new-1',
+        domainId: 'pos.soerjo.id',
+        code: 'order_receipt',
+        channel: NotificationChannel.EMAIL,
+        name: 'Order Receipt',
+        description: 'Receipt',
+        subject: 'Order #{{id}}',
+        body: '<p>Order {{id}}</p>',
+        isActive: true,
+      };
+      mockPrisma.template.create.mockResolvedValueOnce(created);
+
+      const result: unknown = await service.createOrUpdateTemplate({
+        domain_id: 'pos.soerjo.id',
+        code: 'order_receipt',
+        channel: NotificationChannel.EMAIL,
+        name: 'Order Receipt',
+        description: 'Receipt',
+        subject: 'Order #{{id}}',
+        body: '<p>Order {{id}}</p>',
+      });
+
+      expect(mockPrisma.template.create).toHaveBeenCalledWith({
+        data: {
+          domainId: 'pos.soerjo.id',
+          code: 'order_receipt',
+          channel: NotificationChannel.EMAIL,
+          name: 'Order Receipt',
+          description: 'Receipt',
+          subject: 'Order #{{id}}',
+          body: '<p>Order {{id}}</p>',
+          isActive: true,
+        },
+      });
+      expect(result).toEqual(created);
+    });
+
+    it('createOrUpdateTemplate updates template if existing', async () => {
+      mockPrisma.template.findFirst.mockResolvedValueOnce({
+        id: 'tpl-existing-1',
+      });
+      const updated = {
+        id: 'tpl-existing-1',
+        domainId: null,
+        code: 'order_receipt',
+        channel: NotificationChannel.EMAIL,
+        name: 'Updated Name',
+        description: null,
+        subject: null,
+        body: '<p>Updated</p>',
+        isActive: false,
+      };
+      mockPrisma.template.update.mockResolvedValueOnce(updated);
+
+      const result: unknown = await service.createOrUpdateTemplate({
+        code: 'order_receipt',
+        channel: NotificationChannel.EMAIL,
+        name: 'Updated Name',
+        body: '<p>Updated</p>',
+        is_active: false,
+      });
+
+      expect(mockPrisma.template.update).toHaveBeenCalledWith({
+        where: { id: 'tpl-existing-1' },
+        data: {
+          name: 'Updated Name',
+          description: null,
+          subject: null,
+          body: '<p>Updated</p>',
+          isActive: false,
+        },
+      });
+      expect(result).toEqual(updated);
+    });
     it('getTemplateDetails returns template with parameters and sample payload', async () => {
       mockPrisma.template.findFirst.mockResolvedValueOnce({
         code: 'verification-email',

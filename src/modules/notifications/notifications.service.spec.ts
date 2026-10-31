@@ -9,6 +9,7 @@ import { MASKED_VALUE } from '../../common/utils/sanitizer.util.js';
 import type { NotificationsRepository } from './notifications.repository.js';
 import type { TemplateService } from './templates/template.service.js';
 import type { NotificationsQueueService } from './notifications.queue.js';
+import type { PlatformConfigService } from './channels/platform-config.service.js';
 import type { SendNotificationDto } from './dto/send-notification.dto.js';
 
 interface CreateNotificationInput {
@@ -31,8 +32,18 @@ interface Mocks {
     findDeliveryLogs: jest.Mock;
     findDeliveryLogsPaginated: jest.Mock;
   };
-  templateService: { has: jest.Mock; render: jest.Mock };
+  templateService: {
+    has: jest.Mock;
+    render: jest.Mock;
+    listTemplates: jest.Mock;
+    getTemplateDetails: jest.Mock;
+    createOrUpdateTemplate: jest.Mock;
+  };
   queue: { enqueue: jest.Mock };
+  platformConfigService: {
+    createOrUpdatePlatform: jest.Mock;
+    listPlatforms: jest.Mock;
+  };
 }
 
 function buildService(): { service: NotificationsService; mocks: Mocks } {
@@ -48,14 +59,22 @@ function buildService(): { service: NotificationsService; mocks: Mocks } {
     templateService: {
       has: jest.fn().mockResolvedValue(true),
       render: jest.fn().mockResolvedValue({ title: 'T', body: 'B' }),
+      listTemplates: jest.fn().mockResolvedValue([]),
+      getTemplateDetails: jest.fn().mockResolvedValue({}),
+      createOrUpdateTemplate: jest.fn().mockResolvedValue({}),
     },
     queue: { enqueue: jest.fn().mockResolvedValue(undefined) },
+    platformConfigService: {
+      createOrUpdatePlatform: jest.fn().mockResolvedValue({}),
+      listPlatforms: jest.fn().mockResolvedValue([]),
+    },
   };
 
   const service = new NotificationsService(
     mocks.repository as unknown as NotificationsRepository,
     mocks.templateService as unknown as TemplateService,
     mocks.queue as unknown as NotificationsQueueService,
+    mocks.platformConfigService as unknown as PlatformConfigService,
   );
 
   return { service, mocks };
@@ -253,6 +272,27 @@ describe('NotificationsService', () => {
           recipientTarget: 'user@example.com',
           title: 'Welcome!',
           content: 'Welcome to our service',
+        }),
+      );
+    });
+
+    it('sendEmail forwards domain_id to send', async () => {
+      const { service, mocks } = buildService();
+      mocks.repository.create.mockResolvedValueOnce({ id: 'email-domain-1' });
+
+      const result = await service.sendEmail({
+        idempotency_key: 'email-key-domain',
+        to: 'user@example.com',
+        subject: 'Hello Domain',
+        body: 'Email body',
+        domain_id: 'pos.soerjo.id',
+      });
+
+      expect(result.notificationIds).toEqual(['email-domain-1']);
+      expect(mocks.repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          domainId: 'pos.soerjo.id',
+          channel: NotificationChannel.EMAIL,
         }),
       );
     });
@@ -510,6 +550,109 @@ describe('NotificationsService', () => {
           notificationId: 'notif-1',
         }),
       );
+    });
+  });
+
+  describe('platform & template admin methods', () => {
+    it('createOrUpdatePlatform delegates to platformConfigService', async () => {
+      const { service, mocks } = buildService();
+      const dto = {
+        channel: NotificationChannel.EMAIL,
+        name: 'hostinger-smtp',
+        config: { host: 'smtp.hostinger.com', port: 465, pass: 'secret' },
+        domain_id: 'pos.soerjo.id',
+      };
+      const expected = { id: 'plat-1', ...dto };
+      mocks.platformConfigService.createOrUpdatePlatform.mockResolvedValueOnce(
+        expected,
+      );
+
+      const result = await service.createOrUpdatePlatform(dto);
+      expect(
+        mocks.platformConfigService.createOrUpdatePlatform,
+      ).toHaveBeenCalledWith(dto);
+      expect(result).toEqual(expected);
+    });
+
+    it('listPlatforms delegates to platformConfigService', async () => {
+      const { service, mocks } = buildService();
+      const filter = {
+        domain_id: 'pos.soerjo.id',
+        channel: NotificationChannel.EMAIL,
+      };
+      const expected = [{ id: 'plat-1' }];
+      mocks.platformConfigService.listPlatforms.mockResolvedValueOnce(expected);
+
+      const result = await service.listPlatforms(filter);
+      expect(mocks.platformConfigService.listPlatforms).toHaveBeenCalledWith(
+        filter,
+      );
+      expect(result).toEqual(expected);
+    });
+
+    it('createOrUpdateTemplate delegates to templateService', async () => {
+      const { service, mocks } = buildService();
+      const dto = {
+        domain_id: 'pos.soerjo.id',
+        code: 'order_receipt',
+        channel: NotificationChannel.EMAIL,
+        name: 'Order Receipt',
+        body: '<p>Order {{id}}</p>',
+      };
+      const expected = { id: 'tpl-1', ...dto };
+      mocks.templateService.createOrUpdateTemplate.mockResolvedValueOnce(
+        expected,
+      );
+
+      const result: unknown = await service.createOrUpdateTemplate(dto);
+      expect(mocks.templateService.createOrUpdateTemplate).toHaveBeenCalledWith(
+        dto,
+      );
+      expect(result).toEqual(expected);
+    });
+
+    it('listTemplates delegates to templateService without domainId', async () => {
+      const { service, mocks } = buildService();
+      const expected = [{ code: 'tpl-1' }];
+      mocks.templateService.listTemplates.mockResolvedValueOnce(expected);
+
+      const result = await service.listTemplates(NotificationChannel.EMAIL);
+      expect(mocks.templateService.listTemplates).toHaveBeenCalledWith(
+        NotificationChannel.EMAIL,
+      );
+      expect(result).toEqual(expected);
+    });
+
+    it('listTemplates delegates to templateService with domainId', async () => {
+      const { service, mocks } = buildService();
+      const expected = [{ code: 'tpl-domain-1' }];
+      mocks.templateService.listTemplates.mockResolvedValueOnce(expected);
+
+      const result = await service.listTemplates(
+        NotificationChannel.EMAIL,
+        'pos.soerjo.id',
+      );
+      expect(mocks.templateService.listTemplates).toHaveBeenCalledWith(
+        NotificationChannel.EMAIL,
+        'pos.soerjo.id',
+      );
+      expect(result).toEqual(expected);
+    });
+
+    it('getTemplateDetails delegates to templateService', async () => {
+      const { service, mocks } = buildService();
+      const expected = { code: 'tpl-1', parameters: [] };
+      mocks.templateService.getTemplateDetails.mockResolvedValueOnce(expected);
+
+      const result = await service.getTemplateDetails(
+        'tpl-1',
+        NotificationChannel.EMAIL,
+      );
+      expect(mocks.templateService.getTemplateDetails).toHaveBeenCalledWith(
+        'tpl-1',
+        NotificationChannel.EMAIL,
+      );
+      expect(result).toEqual(expected);
     });
   });
 });

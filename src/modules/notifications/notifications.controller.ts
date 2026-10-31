@@ -9,7 +9,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiSecurity, ApiTags } from '@nestjs/swagger';
-import { NotificationChannel } from '@prisma/client';
+import { NotificationChannel, type Template } from '@prisma/client';
 import type { Response } from 'express';
 import {
   SendNotificationDto,
@@ -18,6 +18,9 @@ import {
   SendWhatsappDto,
   SendSocketDto,
   GetNotificationLogsDto,
+  CreateOrUpdatePlatformDto,
+  GetPlatformsDto,
+  CreateOrUpdateTemplateDto,
 } from './dto/index.js';
 import { NotificationsService } from './notifications.service.js';
 
@@ -123,8 +126,48 @@ export class NotificationsController {
     required: false,
     description: 'Filter templates by notification channel',
   })
-  async listTemplates(@Query('channel') channel?: NotificationChannel) {
+  @ApiQuery({
+    name: 'domain_id',
+    type: String,
+    required: false,
+    description: 'Filter templates by domain ID',
+  })
+  async listTemplates(
+    @Query('channel') channel?: NotificationChannel,
+    @Query('domain_id') domainId?: string,
+  ) {
+    if (domainId !== undefined) {
+      return this.notificationsService.listTemplates(channel, domainId);
+    }
     return this.notificationsService.listTemplates(channel);
+  }
+
+  @Post('admin/platforms')
+  @ApiOperation({
+    summary: 'Create or update notification platform configuration',
+  })
+  async createOrUpdatePlatform(@Body() dto: CreateOrUpdatePlatformDto) {
+    return this.notificationsService.createOrUpdatePlatform(dto);
+  }
+
+  @Get('admin/platforms')
+  @ApiOperation({
+    summary:
+      'List configured notification platforms with sensitive fields masked',
+  })
+  async listPlatforms(@Query() query: GetPlatformsDto) {
+    return this.notificationsService.listPlatforms(query);
+  }
+
+  @Post('admin/templates')
+  @ApiOperation({
+    summary:
+      'Create or update notification template for domain, code, and channel',
+  })
+  async createOrUpdateTemplate(
+    @Body() dto: CreateOrUpdateTemplateDto,
+  ): Promise<Template> {
+    return this.notificationsService.createOrUpdateTemplate(dto);
   }
 
   @Get('templates/:code')

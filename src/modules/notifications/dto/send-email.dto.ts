@@ -13,6 +13,11 @@ export class SendEmailDto {
   @IsNotEmpty()
   idempotency_key: string;
 
+  @ApiPropertyOptional({ example: 'pos.soerjo.id' })
+  @IsString()
+  @IsOptional()
+  domain_id?: string;
+
   @ApiProperty({ example: 'user@example.com' })
   @IsEmail()
   @IsNotEmpty()

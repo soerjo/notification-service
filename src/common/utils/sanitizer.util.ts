@@ -1,4 +1,5 @@
-const SENSITIVE_KEY_PATTERN = /password|token|otp|rekening|nrekening/i;
+const SENSITIVE_KEY_PATTERN =
+  /password|(^|[_-])pass($|[_-])|token|otp|rekening|nrekening|secret|authorization|api[-_]?key|private[-_]?key/i;
 
 export const MASKED_VALUE = '***MASKED***';
 

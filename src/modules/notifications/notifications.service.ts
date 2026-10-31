@@ -1,6 +1,11 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { NotificationChannel, Prisma, type Notification } from '@prisma/client';
+import {
+  NotificationChannel,
+  Prisma,
+  type Notification,
+  type Template,
+} from '@prisma/client';
 import { sanitize } from '../../common/utils/sanitizer.util.js';
 import {
   SendNotificationDto,
@@ -10,7 +15,11 @@ import {
   SendWhatsappDto,
   SendSocketDto,
   GetNotificationLogsDto,
+  CreateOrUpdatePlatformDto,
+  GetPlatformsDto,
+  CreateOrUpdateTemplateDto,
 } from './dto/index.js';
+import { PlatformConfigService } from './channels/platform-config.service.js';
 import {
   NotificationsRepository,
   CreateNotificationInput,
@@ -40,6 +49,7 @@ export class NotificationsService {
     private readonly repository: NotificationsRepository,
     private readonly templateService: TemplateService,
     private readonly queue: NotificationsQueueService,
+    private readonly platformConfigService: PlatformConfigService,
   ) {}
 
   async send(dto: SendNotificationDto): Promise<SendResult> {
@@ -102,6 +112,7 @@ export class NotificationsService {
     return this.send({
       idempotency_key: dto.idempotency_key,
       trace_id: dto.trace_id,
+      domain_id: dto.domain_id,
       recipient_id: dto.recipient_id ?? dto.to,
       channels: [NotificationChannel.EMAIL],
       destination: { email: dto.to },
@@ -238,7 +249,24 @@ export class NotificationsService {
     });
   }
 
-  async listTemplates(channel?: NotificationChannel) {
+  async createOrUpdatePlatform(dto: CreateOrUpdatePlatformDto) {
+    return this.platformConfigService.createOrUpdatePlatform(dto);
+  }
+
+  async listPlatforms(filter?: GetPlatformsDto) {
+    return this.platformConfigService.listPlatforms(filter);
+  }
+
+  async createOrUpdateTemplate(
+    dto: CreateOrUpdateTemplateDto,
+  ): Promise<Template> {
+    return this.templateService.createOrUpdateTemplate(dto);
+  }
+
+  async listTemplates(channel?: NotificationChannel, domainId?: string) {
+    if (domainId !== undefined) {
+      return this.templateService.listTemplates(channel, domainId);
+    }
     return this.templateService.listTemplates(channel);
   }
 
